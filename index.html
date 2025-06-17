@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+ <html>
+ <head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      width: 25%;
+      text-align: center;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    label {
+      font-weight: bold;
+    }
+    input, select {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+        width: 100px;
+      padding: 10px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+    .warning {
+      color: orange;
+      font-weight: bold;
+    }
+    .info {
+      color: blue;
+      font-weight: bold;
+    }
+    .container table {
+      margin-top: 20px;
+    }
+  </style>
+ </head>
+ <body>
+  <div class="container">
+    <form>
+        <div>
+            <label for="category">Category:</label>
+            <select id="category">
+              <option value="Food">Food</option>
+              <option value="Transport">Transport</option>
+              <option value="Utilities">Utilities</option>
+              <option value="Entertainment">Entertainment</option>
+            </select>
+        </div>
+        <div>
+            <label for="description">Description:</label>
+            <input type="text" id="description" placeholder="Description">
+        </div>
+        <div>
+            <label for="amount">Amount:</label>
+            <input type="number" id="amount" placeholder="Amount">
+        </div>
+        <div>
+            <label for="date">Date:</label>
+            <!-- 顯示日期和時間的輸入框 -->
+            <input type="datetime-local" id="date" placeholder="Date and Time">
+        </div>
+      <button type="button" onclick="postExpense()">Add Expense</button>
+    </form>
+  </div>
+  <script>
+    const apiUrl = 'http://127.0.0.1:5025/api/Expense/';
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    function renderExpense(expense) {
+      console.table(expense);
+      //使用template string，透過table的方式呈現，標頭只需要一次就好
+        const table = document.querySelector('.container table') || document.createElement('table');
+        if (!table.querySelector('thead')) {
+          const thead = document.createElement('thead');
+          thead.innerHTML = `
+            <tr>
+              <th>ID</th>
+              <th>Amount</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>`;
+          table.appendChild(thead);
+        }
+        const tbody = table.querySelector('tbody') || document.createElement('tbody');
+        const row = document.createElement('tr');
+        // Date物件轉換為可讀的日期格式，時間格式為hh:mm:ss
+        // 使用toISOString()方法將日期轉換為ISO格式
+        row.innerHTML = `
+          <td>${expense.id}</td>
+          <td>${expense.amount}</td>
+          <td>${expense.category}</td>
+          <td>${expense.description}</td>
+          <td>${new Date(expense.date).toISOString().slice(0, 19).replace('T', ' ')}</td>
+          <td>
+            <button onclick="deleteExpense(${expense.id})">Delete</button>
+          </td>`;
+        tbody.appendChild(row);
+        table.appendChild(tbody);
+        if (!document.querySelector('.container table')) {
+          document.querySelector('.container').appendChild(table);
+        }
+      }
+
+    function refreshTable() {
+      const table = document.querySelector('.container table');
+      if (table) {
+        table.remove();
+      }
+      getExpenses();
+    }
+     function getExpenses() {
+       fetch(apiUrl, {
+         method: 'GET',
+         headers: headers
+       })
+       .then(response => {
+         if (!response.ok) {
+           throw new Error('Network response was not ok');
+         }
+         return response.json();
+       })
+       .then(data => {
+         data.forEach(expense => renderExpense(expense));
+       })
+       .catch(error => console.error('There was a problem with the fetch operation:', error));
+     }
+     function postExpense() {
+         const category = document.getElementById('category').value;
+         const description = document.getElementById('description').value;
+         const amount = parseFloat(document.getElementById('amount').value);
+         const date = document.getElementById('date').value;
+    
+         if (!category || !description || isNaN(amount) || !date) {
+            alert('Please fill in all fields correctly.');
+            return;
+         }
+    
+         const expense = {
+            category: category,
+            description: description,
+            amount: amount,
+            date: new Date(date).toISOString()
+         };
+    
+         fetch(apiUrl, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(expense)
+         })
+         .then(response => {
+            if (!response.ok) {
+              throw new Error('Network response was not ok');
+            }
+            return response.json();
+         })
+         .then(data => {
+            console.log('Expense added:', data);
+            renderExpense(data);
+            document.querySelector('form').reset();
+         })
+         .catch(error => console.error('There was a problem with the fetch operation:', error));
+     }
+     function deleteExpense(id) {
+       fetch(`${apiUrl}${id}`, {
+         method: 'DELETE',
+         headers: headers
+       })
+       .then(response => {
+         if (!response.ok) {
+           throw new Error('Network response was not ok');
+         }
+         console.log('Expense deleted:', id);
+         refreshTable();
+       })
+       .catch(error => console.error('There was a problem with the fetch operation:', error));
+     }
+     //const table = document.createElement('table');
+     //document.querySelector('.container').appendChild(table);
+     // document.body.appendChild(table);
+     // refreshTable();
+     //document.querySelector("input[type='submit']").addEventListener('click', postExpense);
+     getExpenses();
+ </script>
+ </body>
+ </html>
